@@ -1,0 +1,2 @@
+include flaskmail/schema.sql
+global-exclude *.pyc

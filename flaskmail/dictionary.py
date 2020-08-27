@@ -4,6 +4,7 @@ from flask import (
 from flaskmail.db import get_db
 from flaskmail.utils import validate_json, validate_schema
 from flaskmail.jsonschema import dictionary_schema
+from datetime import datetime
 
 bp = Blueprint('dictionary', __name__)
 
@@ -16,39 +17,28 @@ def create():
         req_data = request.get_json()
         key = req_data['key']
         value = req_data['value']
-        error = None
-
         dict_value = get_dictionary_value(key)
 
         if dict_value:
-            return make_response(jsonify({"message": "Key already exist"}), 409)
+            return make_response(jsonify(result="Key already exist", time=datetime.now()), 409)
 
-        if not key:
-            error = 'Key is required.'
-        elif not value:
-            error = 'Value is required.'
-
-        if error is not None:
-            return error
-        else:
-            db = get_db()
-            db.execute(
-                'INSERT INTO dictionary (key, value)'
-                ' VALUES (?, ?)',
-                (key, value)
-            )
-            db.commit()
-        return make_response(jsonify({"message": "Dictionary value created"}), 201)
+        db = get_db()
+        db.execute(
+            'INSERT INTO dictionary (key, value)'
+            ' VALUES (?, ?)',
+            (key, value)
+        )
+        db.commit()
+        return make_response(jsonify(result=value, time=datetime.now()), 201)
 
 
 @bp.route('/dictionary/<key>', methods=('GET', ))
 def get(key):
     dict_value = get_dictionary_value(key)
-
     if request.method == 'GET':
         if dict_value is None:
-            return make_response(jsonify({"error": "Not found"}), 404)
-        return make_response(jsonify({'key': key, "value": dict_value['value']}), 200)
+            return make_response(jsonify(result="Not found", time=datetime.now()), 404)
+        return make_response(jsonify(result=dict_value['value'], time=datetime.now()), 200)
 
 
 @bp.route('/dictionary/<key>', methods=('PUT', ))
@@ -56,14 +46,13 @@ def get(key):
 @validate_schema(dictionary_schema)
 def update(key):
     dict_value = get_dictionary_value(key)
-
     if request.method == 'PUT':
         req_data = request.get_json()
         key = req_data['key']
         value = req_data['value']
 
         if dict_value is None:
-            return make_response(jsonify({"error": "Not found"}), 404)
+            return make_response(jsonify(result="Not found", time=datetime.now()), 404)
         else:
             db = get_db()
             db.execute(
@@ -72,7 +61,7 @@ def update(key):
                 (value, key)
             )
             db.commit()
-        return make_response(jsonify({"message": "Dictionary value replaced"}), 201)
+        return make_response(jsonify(result=value, time=datetime.now()), 201)
 
 
 @bp.route('/dictionary/<key>', methods=('DELETE', ))
@@ -82,10 +71,10 @@ def delete(key):
         db.execute(
             'DELETE FROM dictionary'
             ' WHERE key = ?',
-            key
+            (key, )
         )
         db.commit()
-        return make_response(jsonify({}), 204)
+        return make_response(jsonify(result="null", time=datetime.now()), 200)
 
 
 def get_dictionary_value(key):
@@ -93,6 +82,6 @@ def get_dictionary_value(key):
         'SELECT key, value'
         ' FROM dictionary'
         ' WHERE key = ?',
-        key
+        (key, )
     ).fetchone()
     return dict_value
